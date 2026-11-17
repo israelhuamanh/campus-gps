@@ -68,6 +68,7 @@ dependencies {
     implementation("com.google.maps.android:maps-compose:8.4.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

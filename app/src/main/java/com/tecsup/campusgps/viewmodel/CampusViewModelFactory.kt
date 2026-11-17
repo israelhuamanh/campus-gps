@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.tecsup.campusgps.data.LugaresRepositoryLocal
+import com.tecsup.campusgps.data.PreferenciasRepositoryDataStore
 import com.tecsup.campusgps.data.UbicacionRepositoryGoogle
 
 class CampusViewModelFactory(
@@ -17,7 +18,8 @@ class CampusViewModelFactory(
         if (modelClass.isAssignableFrom(MapaViewModel::class.java)) {
             return MapaViewModel(
                 ubicacionRepo = UbicacionRepositoryGoogle(appContext),
-                lugaresRepo = LugaresRepositoryLocal()
+                lugaresRepo = LugaresRepositoryLocal(),
+                prefsRepo = PreferenciasRepositoryDataStore(appContext)
             ) as T
         }
         throw IllegalArgumentException("ViewModel desconocido: ${modelClass.name}")

@@ -3,6 +3,7 @@ package com.tecsup.campusgps.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tecsup.campusgps.data.LugaresRepository
+import com.tecsup.campusgps.data.PreferenciasRepository
 import com.tecsup.campusgps.data.UbicacionRepository
 import com.tecsup.campusgps.model.Lugar
 import com.tecsup.campusgps.model.LugarConDistancia
@@ -17,13 +18,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MapaViewModel(
     private val ubicacionRepo: UbicacionRepository,
-    private val lugaresRepo: LugaresRepository
+    private val lugaresRepo: LugaresRepository,
+    private val prefsRepo: PreferenciasRepository
 ) : ViewModel() {
 
     val categorias: List<String> = listOf("Todos", "Estudio", "Comida", "Eventos", "Servicios")
@@ -68,6 +71,15 @@ class MapaViewModel(
 
     private val _seleccionado = MutableStateFlow<Int?>(null)
     val seleccionado: StateFlow<Int?> = _seleccionado.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val guardado = prefsRepo.ultimoLugarId.firstOrNull()
+            if (_seleccionado.value == null && guardado != null) {
+                _seleccionado.value = guardado
+            }
+        }
+    }
 
     val masCercano: StateFlow<Lugar?> = lugares
         .map { lista -> lista.firstOrNull { it.metros != null }?.lugar }
@@ -160,6 +172,9 @@ class MapaViewModel(
 
     fun seleccionar(id: Int?) {
         _seleccionado.value = id
+        viewModelScope.launch {
+            prefsRepo.guardarUltimoLugar(id)
+        }
     }
 
     private fun errorDe(e: Throwable): UbicacionUi.Error = when (e) {
