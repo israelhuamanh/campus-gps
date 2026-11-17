@@ -10,10 +10,12 @@ import com.tecsup.campusgps.model.Posicion
 import com.tecsup.campusgps.model.TipoError
 import com.tecsup.campusgps.model.UbicacionUi
 import com.tecsup.campusgps.util.distanciaMetros
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +31,11 @@ class MapaViewModel(
 
     private val _estado = MutableStateFlow<UbicacionUi>(UbicacionUi.Inicial)
     val estado: StateFlow<UbicacionUi> = _estado.asStateFlow()
+
+    private val _siguiendo = MutableStateFlow(false)
+    val siguiendo: StateFlow<Boolean> = _siguiendo.asStateFlow()
+
+    private var trackingJob: Job? = null
 
     private val _lugaresBase = MutableStateFlow(
         lugaresRepo.obtenerLugares().map { LugarConDistancia(it, null) }
@@ -86,6 +93,49 @@ class MapaViewModel(
         }
     }
 
+    fun iniciarSeguimiento() {
+        if (_siguiendo.value) return
+        if (!ubicacionRepo.playServicesDisponible()) {
+            _estado.value = UbicacionUi.Error(
+                mensaje = "Este dispositivo no tiene Google Play Services",
+                tipo = TipoError.SIN_PLAY_SERVICES
+            )
+            return
+        }
+
+        _siguiendo.value = true
+        if (_estado.value !is UbicacionUi.Lista) {
+            _estado.value = UbicacionUi.Buscando
+        }
+
+        trackingJob?.cancel()
+        trackingJob = viewModelScope.launch {
+            ubicacionRepo.observarPosicion()
+                .catch { e ->
+                    _siguiendo.value = false
+                    _estado.value = errorDe(e)
+                }
+                .collect { pos ->
+                    _estado.value = UbicacionUi.Lista(pos)
+                    actualizarDistancias(pos)
+                }
+        }
+    }
+
+    fun detenerSeguimiento() {
+        trackingJob?.cancel()
+        trackingJob = null
+        _siguiendo.value = false
+    }
+
+    fun alternarSeguimiento() {
+        if (_siguiendo.value) {
+            detenerSeguimiento()
+        } else {
+            iniciarSeguimiento()
+        }
+    }
+
     private fun actualizarDistancias(pos: Posicion) {
         _lugaresBase.value = lugaresRepo.obtenerLugares()
             .map { lugar -> LugarConDistancia(lugar, distanciaMetros(pos, lugar)) }
@@ -101,6 +151,7 @@ class MapaViewModel(
     }
 
     fun permisoDenegado() {
+        detenerSeguimiento()
         _estado.value = UbicacionUi.Error(
             mensaje = "Sin permiso de ubicación no puedo mostrar dónde estás",
             tipo = TipoError.SIN_PERMISO

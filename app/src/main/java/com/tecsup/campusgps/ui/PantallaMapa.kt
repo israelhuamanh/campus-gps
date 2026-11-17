@@ -1,6 +1,7 @@
 package com.tecsup.campusgps.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NearMe
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
@@ -45,9 +49,13 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,9 +66,29 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.tecsup.campusgps.model.UbicacionUi
 import com.tecsup.campusgps.util.formatearDistancia
 import com.tecsup.campusgps.viewmodel.MapaViewModel
+
+private enum class AccionUbicacion {
+    BUSCAR_UNA_VEZ,
+    SEGUIMIENTO
+}
+
+private fun hayPermisoUbicacion(contexto: Context): Boolean {
+    val tieneFino = ContextCompat.checkSelfPermission(
+        contexto,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val tieneAproximado = ContextCompat.checkSelfPermission(
+        contexto,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    return tieneFino || tieneAproximado
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -71,31 +99,53 @@ fun PantallaMapa(vm: MapaViewModel) {
     val masCercano by vm.masCercano.collectAsState()
     val categoriaSeleccionada by vm.categoriaSeleccionada.collectAsState()
     val radioMetros by vm.radioMetros.collectAsState()
+    val siguiendo by vm.siguiendo.collectAsState()
     val contexto = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var tienePermiso by remember { mutableStateOf(hayPermisoUbicacion(contexto)) }
+    var accionPendiente by remember { mutableStateOf(AccionUbicacion.BUSCAR_UNA_VEZ) }
+    val siguiendoActual by rememberUpdatedState(siguiendo)
+
+    DisposableEffect(lifecycleOwner) {
+        val observador = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val concedido = hayPermisoUbicacion(contexto)
+                tienePermiso = concedido
+                if (!concedido && siguiendoActual) {
+                    vm.detenerSeguimiento()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observador)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observador) }
+    }
 
     val lanzador = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { resultado ->
-        if (resultado.values.any { it }) {
-            vm.buscar()
+        val concedido = resultado.values.any { it }
+        tienePermiso = concedido
+        if (concedido) {
+            when (accionPendiente) {
+                AccionUbicacion.BUSCAR_UNA_VEZ -> vm.buscar()
+                AccionUbicacion.SEGUIMIENTO -> vm.iniciarSeguimiento()
+            }
         } else {
             vm.permisoDenegado()
         }
     }
 
-    fun alPulsar() {
-        val tieneFino = ContextCompat.checkSelfPermission(
-            contexto,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val tieneAproximado = ContextCompat.checkSelfPermission(
-            contexto,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (tieneFino || tieneAproximado) {
-            vm.buscar()
+    fun ejecutarConPermiso(accion: AccionUbicacion) {
+        val concedido = hayPermisoUbicacion(contexto)
+        tienePermiso = concedido
+        if (concedido) {
+            when (accion) {
+                AccionUbicacion.BUSCAR_UNA_VEZ -> vm.buscar()
+                AccionUbicacion.SEGUIMIENTO -> vm.alternarSeguimiento()
+            }
         } else {
+            accionPendiente = accion
             lanzador.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -149,6 +199,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                 seleccionado = seleccionado,
                 masCercanoId = masCercano?.id,
                 radioMetros = radioMetros,
+                tienePermiso = tienePermiso,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -162,7 +213,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { alPulsar() },
+                    onClick = { ejecutarConPermiso(AccionUbicacion.BUSCAR_UNA_VEZ) },
                     enabled = estado !is UbicacionUi.Buscando,
                     shape = RoundedCornerShape(radioBoton),
                     interactionSource = interactionSource,
@@ -184,23 +235,56 @@ fun PantallaMapa(vm: MapaViewModel) {
                     )
                 }
 
-                OutlinedButton(
-                    onClick = { masCercano?.let { vm.seleccionar(it.id) } },
-                    enabled = masCercano != null,
-                    shape = RoundedCornerShape(radioCercano),
-                    interactionSource = interaccionCercano,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.NearMe,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Ir al más cercano",
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    OutlinedButton(
+                        onClick = { masCercano?.let { vm.seleccionar(it.id) } },
+                        enabled = masCercano != null,
+                        shape = RoundedCornerShape(radioCercano),
+                        interactionSource = interaccionCercano,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.NearMe,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Ir al más cercano",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+
+                    ToggleButton(
+                        checked = siguiendo,
+                        onCheckedChange = { quiereSeguir ->
+                            if (quiereSeguir) {
+                                ejecutarConPermiso(AccionUbicacion.SEGUIMIENTO)
+                            } else {
+                                vm.detenerSeguimiento()
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (siguiendo) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (siguiendo) "Detener seguimiento" else "Iniciar seguimiento",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
 
                 val itemMasCercano = masCercano?.let { lugar ->
@@ -236,7 +320,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                     is UbicacionUi.Error -> {
                         MensajeError(
                             error = actual,
-                            onReintentar = { alPulsar() }
+                            onReintentar = { ejecutarConPermiso(AccionUbicacion.BUSCAR_UNA_VEZ) }
                         )
                     }
                 }
