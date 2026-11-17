@@ -1,0 +1,39 @@
+package com.tecsup.campusgps.data
+
+import android.annotation.SuppressLint
+import android.content.Context
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.tecsup.campusgps.model.Posicion
+import kotlinx.coroutines.tasks.await
+
+class UbicacionRepositoryGoogle(
+    private val context: Context
+) : UbicacionRepository {
+
+    private val cliente by lazy {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
+
+    @SuppressLint("MissingPermission")
+    override suspend fun obtenerPosicion(): Result<Posicion> {
+        return try {
+            val token = CancellationTokenSource()
+            val ubicacion = cliente
+                .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, token.token)
+                .await()
+            if (ubicacion != null) {
+                Result.success(Posicion(ubicacion.latitude, ubicacion.longitude))
+            } else {
+                Result.failure(
+                    IllegalStateException("No se pudo obtener la ubicación. Activa el GPS e intenta de nuevo")
+                )
+            }
+        } catch (e: SecurityException) {
+            Result.failure(e)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
