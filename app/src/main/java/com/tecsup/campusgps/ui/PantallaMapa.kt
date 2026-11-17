@@ -166,7 +166,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                     }
                     is UbicacionUi.Lista -> {
                         Text(
-                            text = "Latitud: ${actual.posicion.latitud}\nLongitud: ${actual.posicion.longitud}",
+                            text = "Latitud: ${actual.posicion.latitud} · Longitud: ${actual.posicion.longitud}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -180,6 +180,15 @@ fun PantallaMapa(vm: MapaViewModel) {
                     }
                 }
             }
+
+            ListaLugares(
+                lugares = lugares,
+                seleccionado = seleccionado,
+                onClick = { vm.seleccionar(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+            )
         }
     }
 }
