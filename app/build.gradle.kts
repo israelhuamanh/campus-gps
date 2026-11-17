@@ -4,9 +4,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// TODO: lee local.properties (si existe) y úsalo en defaultConfig
 val localProps = java.util.Properties().apply {
-    // TODO: cargar rootProject.file("local.properties")
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -21,7 +23,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // TODO: manifestPlaceholders["MAPS_API_KEY"] = ...
+        manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY", "")
     }
 
     buildTypes {
