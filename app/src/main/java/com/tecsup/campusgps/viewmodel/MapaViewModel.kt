@@ -25,6 +25,7 @@ class MapaViewModel(
 ) : ViewModel() {
 
     val categorias: List<String> = listOf("Todos", "Estudio", "Comida", "Eventos", "Servicios")
+    val opcionesRadio: List<Int> = listOf(100, 200, 500)
 
     private val _estado = MutableStateFlow<UbicacionUi>(UbicacionUi.Inicial)
     val estado: StateFlow<UbicacionUi> = _estado.asStateFlow()
@@ -36,11 +37,22 @@ class MapaViewModel(
     private val _categoriaSeleccionada = MutableStateFlow("Todos")
     val categoriaSeleccionada: StateFlow<String> = _categoriaSeleccionada.asStateFlow()
 
+    private val _radioMetros = MutableStateFlow(200)
+    val radioMetros: StateFlow<Int> = _radioMetros.asStateFlow()
+
     val lugares: StateFlow<List<LugarConDistancia>> = combine(
         _lugaresBase,
-        _categoriaSeleccionada
-    ) { lista, categoria ->
-        if (categoria == "Todos") lista else lista.filter { it.lugar.categoria == categoria }
+        _categoriaSeleccionada,
+        _radioMetros
+    ) { lista, categoria, radio ->
+        val filtrados = if (categoria == "Todos") {
+            lista
+        } else {
+            lista.filter { it.lugar.categoria == categoria }
+        }
+        filtrados.map { item ->
+            item.copy(dentroDelRadio = item.metros != null && item.metros <= radio)
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -82,6 +94,10 @@ class MapaViewModel(
 
     fun seleccionarCategoria(categoria: String) {
         _categoriaSeleccionada.value = categoria
+    }
+
+    fun seleccionarRadio(metros: Int) {
+        _radioMetros.value = metros
     }
 
     fun permisoDenegado() {

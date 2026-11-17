@@ -1,5 +1,6 @@
 package com.tecsup.campusgps.ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
@@ -8,6 +9,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
@@ -21,6 +23,7 @@ fun MapaUbicacion(
     lugares: List<LugarConDistancia>,
     seleccionado: Int?,
     masCercanoId: Int? = null,
+    radioMetros: Int = 200,
     modifier: Modifier = Modifier
 ) {
     val camara = rememberCameraPositionState {
@@ -46,9 +49,18 @@ fun MapaUbicacion(
         }
     }
 
+    val colorCirculo = MaterialTheme.colorScheme.primary
+
     GoogleMap(modifier = modifier, cameraPositionState = camara) {
         if (estado is UbicacionUi.Lista) {
             val miPosicion = LatLng(estado.posicion.latitud, estado.posicion.longitud)
+            Circle(
+                center = miPosicion,
+                radius = radioMetros.toDouble(),
+                fillColor = colorCirculo.copy(alpha = 0.14f),
+                strokeColor = colorCirculo.copy(alpha = 0.65f),
+                strokeWidth = 3f
+            )
             Marker(
                 state = rememberUpdatedMarkerState(position = miPosicion),
                 title = "Estás aquí"

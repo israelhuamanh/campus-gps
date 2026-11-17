@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +28,10 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -37,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -47,6 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -62,6 +70,7 @@ fun PantallaMapa(vm: MapaViewModel) {
     val seleccionado by vm.seleccionado.collectAsState()
     val masCercano by vm.masCercano.collectAsState()
     val categoriaSeleccionada by vm.categoriaSeleccionada.collectAsState()
+    val radioMetros by vm.radioMetros.collectAsState()
     val contexto = LocalContext.current
 
     val lanzador = rememberLauncherForActivityResult(
@@ -139,6 +148,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                 lugares = lugares,
                 seleccionado = seleccionado,
                 masCercanoId = masCercano?.id,
+                radioMetros = radioMetros,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -147,7 +157,7 @@ fun PantallaMapa(vm: MapaViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -205,6 +215,12 @@ fun PantallaMapa(vm: MapaViewModel) {
                     )
                 }
 
+                SelectorRadio(
+                    radios = vm.opcionesRadio,
+                    radioSeleccionado = radioMetros,
+                    onSeleccionarRadio = { vm.seleccionarRadio(it) }
+                )
+
                 when (val actual = estado) {
                     UbicacionUi.Inicial -> {
                         Text(
@@ -236,10 +252,77 @@ fun PantallaMapa(vm: MapaViewModel) {
                 lugares = lugares,
                 seleccionado = seleccionado,
                 onClick = { vm.seleccionar(it) },
+                radioMetros = radioMetros,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp)
+                    .height(195.dp)
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SelectorRadio(
+    radios: List<Int>,
+    radioSeleccionado: Int,
+    onSeleccionarRadio: (Int) -> Unit
+) {
+    val fuentesInteraccion = remember(radios) {
+        List(radios.size) { MutableInteractionSource() }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+    ) {
+        Text(
+            text = "Radio:",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        ButtonGroup(
+            overflowIndicator = { menuState ->
+                ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+            },
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
+        ) {
+            radios.forEachIndexed { index, radio ->
+                val interaccion = fuentesInteraccion[index]
+                val seleccionado = radio == radioSeleccionado
+                customItem(
+                    buttonGroupContent = {
+                        ToggleButton(
+                            checked = seleccionado,
+                            onCheckedChange = { if (it) onSeleccionarRadio(radio) },
+                            shapes = when (index) {
+                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                radios.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                            },
+                            interactionSource = interaccion,
+                            modifier = Modifier
+                                .animateWidth(interactionSource = interaccion)
+                                .semantics { role = Role.RadioButton }
+                        ) {
+                            Text(
+                                text = "$radio m",
+                                softWrap = false,
+                                maxLines = 1
+                            )
+                        }
+                    },
+                    menuContent = { menuState ->
+                        DropdownMenuItem(
+                            text = { Text("$radio m") },
+                            onClick = {
+                                onSeleccionarRadio(radio)
+                                menuState.dismiss()
+                            }
+                        )
+                    }
+                )
+            }
         }
     }
 }

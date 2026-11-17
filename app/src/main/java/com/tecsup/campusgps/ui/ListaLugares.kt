@@ -1,5 +1,6 @@
 package com.tecsup.campusgps.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
@@ -23,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,6 +43,7 @@ fun ListaLugares(
     lugares: List<LugarConDistancia>,
     seleccionado: Int?,
     onClick: (Int) -> Unit,
+    radioMetros: Int = 200,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -116,15 +119,34 @@ fun ListaLugares(
                                 MaterialTheme.colorScheme.onSurface
                             }
                         )
-                        Text(
-                            text = item.lugar.categoria,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (esSeleccionado) {
-                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = item.lugar.categoria,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (esSeleccionado) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            AnimatedVisibility(visible = item.dentroDelRadio) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer
+                                ) {
+                                    Text(
+                                        text = "En radio ($radioMetros m)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
-                        )
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
