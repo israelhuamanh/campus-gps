@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,13 +24,28 @@ class MapaViewModel(
     private val lugaresRepo: LugaresRepository
 ) : ViewModel() {
 
+    val categorias: List<String> = listOf("Todos", "Estudio", "Comida", "Eventos", "Servicios")
+
     private val _estado = MutableStateFlow<UbicacionUi>(UbicacionUi.Inicial)
     val estado: StateFlow<UbicacionUi> = _estado.asStateFlow()
 
-    private val _lugares = MutableStateFlow(
+    private val _lugaresBase = MutableStateFlow(
         lugaresRepo.obtenerLugares().map { LugarConDistancia(it, null) }
     )
-    val lugares: StateFlow<List<LugarConDistancia>> = _lugares.asStateFlow()
+
+    private val _categoriaSeleccionada = MutableStateFlow("Todos")
+    val categoriaSeleccionada: StateFlow<String> = _categoriaSeleccionada.asStateFlow()
+
+    val lugares: StateFlow<List<LugarConDistancia>> = combine(
+        _lugaresBase,
+        _categoriaSeleccionada
+    ) { lista, categoria ->
+        if (categoria == "Todos") lista else lista.filter { it.lugar.categoria == categoria }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = _lugaresBase.value
+    )
 
     private val _seleccionado = MutableStateFlow<Int?>(null)
     val seleccionado: StateFlow<Int?> = _seleccionado.asStateFlow()
@@ -59,9 +75,13 @@ class MapaViewModel(
     }
 
     private fun actualizarDistancias(pos: Posicion) {
-        _lugares.value = lugaresRepo.obtenerLugares()
+        _lugaresBase.value = lugaresRepo.obtenerLugares()
             .map { lugar -> LugarConDistancia(lugar, distanciaMetros(pos, lugar)) }
             .sortedBy { it.metros }
+    }
+
+    fun seleccionarCategoria(categoria: String) {
+        _categoriaSeleccionada.value = categoria
     }
 
     fun permisoDenegado() {
