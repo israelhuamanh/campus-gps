@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,6 +48,8 @@ import com.tecsup.campusgps.viewmodel.MapaViewModel
 @Composable
 fun PantallaMapa(vm: MapaViewModel) {
     val estado by vm.estado.collectAsState()
+    val lugares by vm.lugares.collectAsState()
+    val seleccionado by vm.seleccionado.collectAsState()
     val contexto = LocalContext.current
 
     val lanzador = rememberLauncherForActivityResult(
@@ -108,63 +111,73 @@ fun PantallaMapa(vm: MapaViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(
-                onClick = { alPulsar() },
-                enabled = estado !is UbicacionUi.Buscando,
-                shape = RoundedCornerShape(radioBoton),
-                interactionSource = interactionSource,
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                modifier = Modifier.graphicsLayer {
-                    scaleX = escalaBoton
-                    scaleY = escalaBoton
-                }
+            MapaUbicacion(
+                estado = estado,
+                lugares = lugares,
+                seleccionado = seleccionado,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.MyLocation,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Obtener mi ubicación",
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+                Button(
+                    onClick = { alPulsar() },
+                    enabled = estado !is UbicacionUi.Buscando,
+                    shape = RoundedCornerShape(radioBoton),
+                    interactionSource = interactionSource,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = escalaBoton
+                        scaleY = escalaBoton
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Obtener mi ubicación",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            when (val actual = estado) {
-                UbicacionUi.Inicial -> {
-                    Text(
-                        text = "Pulsa el botón para empezar",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                UbicacionUi.Buscando -> {
-                    CircularProgressIndicator()
-                }
-                is UbicacionUi.Lista -> {
-                    Text(
-                        text = "Latitud: ${actual.posicion.latitud}",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = "Longitud: ${actual.posicion.longitud}",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-                is UbicacionUi.Error -> {
-                    Text(
-                        text = actual.mensaje,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                when (val actual = estado) {
+                    UbicacionUi.Inicial -> {
+                        Text(
+                            text = "Pulsa el botón para empezar",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    UbicacionUi.Buscando -> {
+                        CircularProgressIndicator()
+                    }
+                    is UbicacionUi.Lista -> {
+                        Text(
+                            text = "Latitud: ${actual.posicion.latitud}\nLongitud: ${actual.posicion.longitud}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    is UbicacionUi.Error -> {
+                        Text(
+                            text = actual.mensaje,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }
