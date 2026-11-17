@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.tecsup.campusgps.data.LugaresRepository
 import com.tecsup.campusgps.data.UbicacionRepository
 import com.tecsup.campusgps.model.LugarConDistancia
+import com.tecsup.campusgps.model.Posicion
 import com.tecsup.campusgps.model.UbicacionUi
+import com.tecsup.campusgps.util.distanciaMetros
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,10 +35,16 @@ class MapaViewModel(
             ubicacionRepo.obtenerPosicion()
                 .onSuccess {
                     _estado.value = UbicacionUi.Lista(it)
-                    // TODO Paso 5: actualizarDistancias(it)
+                    actualizarDistancias(it)
                 }
                 .onFailure { _estado.value = UbicacionUi.Error(mensajeDe(it)) }
         }
+    }
+
+    private fun actualizarDistancias(pos: Posicion) {
+        _lugares.value = lugaresRepo.obtenerLugares()
+            .map { lugar -> LugarConDistancia(lugar, distanciaMetros(pos, lugar)) }
+            .sortedBy { it.metros }
     }
 
     fun permisoDenegado() {
