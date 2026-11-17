@@ -1,14 +1,30 @@
 package com.tecsup.campusgps.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,23 +33,66 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.tecsup.campusgps.model.UbicacionUi
 import com.tecsup.campusgps.viewmodel.MapaViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PantallaMapa(vm: MapaViewModel) {
     val estado by vm.estado.collectAsState()
+    val contexto = LocalContext.current
 
-    // TODO 1 (Paso 2): rememberLauncherForActivityResult(RequestMultiplePermissions)
-    fun alPulsar() {
-        // TODO 2 (Paso 2): ¿ya tienes FINE o COARSE? -> vm.buscar()
-        // TODO 3 (Paso 2): si no -> lanzador.launch(...)
-        vm.buscar()
+    val lanzador = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { resultado ->
+        if (resultado.values.any { it }) {
+            vm.buscar()
+        } else {
+            vm.permisoDenegado()
+        }
     }
+
+    fun alPulsar() {
+        val tieneFino = ContextCompat.checkSelfPermission(
+            contexto,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val tieneAproximado = ContextCompat.checkSelfPermission(
+            contexto,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (tieneFino || tieneAproximado) {
+            vm.buscar()
+        } else {
+            lanzador.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val presionado by interactionSource.collectIsPressedAsState()
+    val radioBoton by animateDpAsState(
+        targetValue = if (presionado) 8.dp else 28.dp,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "radioBotonPrincipal"
+    )
+    val escalaBoton by animateFloatAsState(
+        targetValue = if (presionado) 0.96f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "escalaBotonPrincipal"
+    )
 
     Scaffold(
         topBar = {
@@ -56,9 +115,25 @@ fun PantallaMapa(vm: MapaViewModel) {
         ) {
             Button(
                 onClick = { alPulsar() },
-                enabled = estado !is UbicacionUi.Buscando
+                enabled = estado !is UbicacionUi.Buscando,
+                shape = RoundedCornerShape(radioBoton),
+                interactionSource = interactionSource,
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                modifier = Modifier.graphicsLayer {
+                    scaleX = escalaBoton
+                    scaleY = escalaBoton
+                }
             ) {
-                Text("Obtener mi ubicación")
+                Icon(
+                    imageVector = Icons.Rounded.MyLocation,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Obtener mi ubicación",
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
