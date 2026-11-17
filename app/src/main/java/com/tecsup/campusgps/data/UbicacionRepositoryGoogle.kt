@@ -2,6 +2,8 @@ package com.tecsup.campusgps.data
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -14,6 +16,11 @@ class UbicacionRepositoryGoogle(
 
     private val cliente by lazy {
         LocationServices.getFusedLocationProviderClient(context)
+    }
+
+    override fun playServicesDisponible(): Boolean {
+        val estado = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
+        return estado == ConnectionResult.SUCCESS
     }
 
     @SuppressLint("MissingPermission")

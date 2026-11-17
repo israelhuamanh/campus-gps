@@ -211,10 +211,9 @@ fun PantallaMapa(vm: MapaViewModel) {
                     }
                     is UbicacionUi.Lista -> Unit
                     is UbicacionUi.Error -> {
-                        Text(
-                            text = actual.mensaje,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                        MensajeError(
+                            error = actual,
+                            onReintentar = { alPulsar() }
                         )
                     }
                 }
