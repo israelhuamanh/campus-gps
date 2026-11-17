@@ -21,12 +21,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,9 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.tecsup.campusgps.model.UbicacionUi
+import com.tecsup.campusgps.util.formatearDistancia
 import com.tecsup.campusgps.viewmodel.MapaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -50,6 +54,7 @@ fun PantallaMapa(vm: MapaViewModel) {
     val estado by vm.estado.collectAsState()
     val lugares by vm.lugares.collectAsState()
     val seleccionado by vm.seleccionado.collectAsState()
+    val masCercano by vm.masCercano.collectAsState()
     val contexto = LocalContext.current
 
     val lanzador = rememberLauncherForActivityResult(
@@ -97,6 +102,14 @@ fun PantallaMapa(vm: MapaViewModel) {
         label = "escalaBotonPrincipal"
     )
 
+    val interaccionCercano = remember { MutableInteractionSource() }
+    val presionadoCercano by interaccionCercano.collectIsPressedAsState()
+    val radioCercano by animateDpAsState(
+        targetValue = if (presionadoCercano) 8.dp else 28.dp,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "radioBotonCercano"
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -118,6 +131,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                 estado = estado,
                 lugares = lugares,
                 seleccionado = seleccionado,
+                masCercanoId = masCercano?.id,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -126,9 +140,9 @@ fun PantallaMapa(vm: MapaViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
                     onClick = { alPulsar() },
@@ -153,6 +167,37 @@ fun PantallaMapa(vm: MapaViewModel) {
                     )
                 }
 
+                OutlinedButton(
+                    onClick = { masCercano?.let { vm.seleccionar(it.id) } },
+                    enabled = masCercano != null,
+                    shape = RoundedCornerShape(radioCercano),
+                    interactionSource = interaccionCercano,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.NearMe,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Ir al más cercano",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+
+                val itemMasCercano = masCercano?.let { lugar ->
+                    lugares.firstOrNull { it.lugar.id == lugar.id }
+                }
+                if (itemMasCercano?.metros != null) {
+                    Text(
+                        text = "Más cercano: ${itemMasCercano.lugar.nombre} (${formatearDistancia(itemMasCercano.metros)})",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+
                 when (val actual = estado) {
                     UbicacionUi.Inicial -> {
                         Text(
@@ -164,13 +209,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                     UbicacionUi.Buscando -> {
                         CircularProgressIndicator()
                     }
-                    is UbicacionUi.Lista -> {
-                        Text(
-                            text = "Latitud: ${actual.posicion.latitud} · Longitud: ${actual.posicion.longitud}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    is UbicacionUi.Lista -> Unit
                     is UbicacionUi.Error -> {
                         Text(
                             text = actual.mensaje,
