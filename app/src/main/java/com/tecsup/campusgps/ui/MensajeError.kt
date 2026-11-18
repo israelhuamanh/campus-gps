@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import com.tecsup.campusgps.model.TipoError
 import com.tecsup.campusgps.model.UbicacionUi
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MensajeError(
     error: UbicacionUi.Error,
@@ -50,7 +49,7 @@ fun MensajeError(
     val presionado by interactionSource.collectIsPressedAsState()
     val radioBoton by animateDpAsState(
         targetValue = if (presionado) 8.dp else 28.dp,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = spring(),
         label = "radioBotonError"
     )
 
