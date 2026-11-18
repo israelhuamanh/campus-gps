@@ -22,7 +22,7 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberUpdatedMarkerState
+import com.google.maps.android.compose.rememberMarkerState
 import com.tecsup.campusgps.R
 import com.tecsup.campusgps.model.LugarConDistancia
 import com.tecsup.campusgps.model.UbicacionUi
@@ -38,59 +38,71 @@ fun MapaUbicacion(
     modifier: Modifier = Modifier
 ) {
     val camara = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(LatLng(-12.0464, -77.0428), 12f)
+        position = CameraPosition.fromLatLngZoom(LatLng(-12.046374, -77.042793), 16f)
     }
 
-    var forzarCentrado by remember { mutableStateOf(false) }
-
-    LaunchedEffect(estado) {
-        when (estado) {
-            UbicacionUi.Buscando -> forzarCentrado = true
-            is UbicacionUi.Lista -> {
-                if (forzarCentrado || seleccionado == null) {
-                    val destino = LatLng(estado.posicion.latitud, estado.posicion.longitud)
-                    camara.animate(CameraUpdateFactory.newLatLngZoom(destino, 16f))
-                    forzarCentrado = false
-                }
-            }
-            else -> forzarCentrado = false
-        }
-    }
-
-    LaunchedEffect(seleccionado) {
-        val lugar = lugares.firstOrNull { it.lugar.id == seleccionado }?.lugar
-        if (lugar != null) {
-            camara.animate(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(lugar.latitud, lugar.longitud),
-                    17f
-                )
-            )
-        }
-    }
-
-    val colorCirculo = MaterialTheme.colorScheme.primary
-    val temaOscuro = isSystemInDarkTheme()
     val contexto = LocalContext.current
-    val estiloMapa = remember(temaOscuro, contexto) {
-        if (temaOscuro) {
+    val esOscuro = isSystemInDarkTheme()
+
+    val estiloMapa = remember(esOscuro) {
+        if (!esOscuro) null else try {
             MapStyleOptions.loadRawResourceStyle(contexto, R.raw.map_style_dark)
-        } else {
+        } catch (_: Exception) {
             null
         }
     }
 
+    var propiedades by remember {
+        mutableStateOf(
+            MapProperties(
+                isMyLocationEnabled = false,
+                mapStyleOptions = estiloMapa
+            )
+        )
+    }
+
+    LaunchedEffect(tienePermiso, estiloMapa) {
+        propiedades = propiedades.copy(
+            isMyLocationEnabled = tienePermiso,
+            mapStyleOptions = estiloMapa
+        )
+    }
+
+    val configuracionUi = remember {
+        MapUiSettings(
+            myLocationButtonEnabled = false,
+            zoomControlsEnabled = false,
+            compassEnabled = true
+        )
+    }
+
+    val miPosicion = (estado as? UbicacionUi.Lista)?.posicion?.let {
+        LatLng(it.latitud, it.longitud)
+    }
+
+    LaunchedEffect(miPosicion) {
+        miPosicion?.let { pos ->
+            camara.animate(CameraUpdateFactory.newLatLngZoom(pos, 16.5f))
+        }
+    }
+
+    LaunchedEffect(seleccionado) {
+        val lugarSel = lugares.firstOrNull { it.lugar.id == seleccionado }?.lugar
+        if (lugarSel != null) {
+            val destino = LatLng(lugarSel.latitud, lugarSel.longitud)
+            camara.animate(CameraUpdateFactory.newLatLngZoom(destino, 17.5f))
+        }
+    }
+
+    val colorCirculo = MaterialTheme.colorScheme.primary
+
     GoogleMap(
         modifier = modifier,
         cameraPositionState = camara,
-        properties = MapProperties(
-            isMyLocationEnabled = tienePermiso,
-            mapStyleOptions = estiloMapa
-        ),
-        uiSettings = MapUiSettings(myLocationButtonEnabled = tienePermiso)
+        properties = propiedades,
+        uiSettings = configuracionUi
     ) {
-        if (estado is UbicacionUi.Lista) {
-            val miPosicion = LatLng(estado.posicion.latitud, estado.posicion.longitud)
+        if (miPosicion != null) {
             Circle(
                 center = miPosicion,
                 radius = radioMetros.toDouble(),
@@ -99,7 +111,7 @@ fun MapaUbicacion(
                 strokeWidth = 3f
             )
             Marker(
-                state = rememberUpdatedMarkerState(position = miPosicion),
+                state = rememberMarkerState(position = miPosicion).apply { position = miPosicion },
                 title = "Estás aquí"
             )
         }
@@ -112,10 +124,9 @@ fun MapaUbicacion(
                 } else {
                     BitmapDescriptorFactory.HUE_AZURE
                 }
+                val pos = LatLng(item.lugar.latitud, item.lugar.longitud)
                 Marker(
-                    state = rememberUpdatedMarkerState(
-                        position = LatLng(item.lugar.latitud, item.lugar.longitud)
-                    ),
+                    state = rememberMarkerState(key = item.lugar.id.toString(), position = pos).apply { position = pos },
                     title = item.lugar.nombre,
                     snippet = item.lugar.categoria,
                     icon = BitmapDescriptorFactory.defaultMarker(colorMarcador)

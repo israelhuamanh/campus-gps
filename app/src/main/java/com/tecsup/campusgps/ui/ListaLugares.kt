@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,14 +36,13 @@ import androidx.compose.ui.unit.dp
 import com.tecsup.campusgps.model.LugarConDistancia
 import com.tecsup.campusgps.util.formatearDistancia
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ListaLugares(
     lugares: List<LugarConDistancia>,
     seleccionado: Int?,
     onClick: (Int) -> Unit,
-    radioMetros: Int = 200,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    masCercanoId: Int? = null
 ) {
     LazyColumn(
         modifier = modifier,
@@ -62,7 +60,7 @@ fun ListaLugares(
                 } else {
                     MaterialTheme.colorScheme.surfaceContainerLow
                 },
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                animationSpec = spring(),
                 label = "colorTarjetaLugar"
             )
             val colorBorde by animateColorAsState(
@@ -71,7 +69,7 @@ fun ListaLugares(
                 } else {
                     MaterialTheme.colorScheme.outlineVariant
                 },
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                animationSpec = spring(),
                 label = "bordeTarjetaLugar"
             )
 
@@ -79,9 +77,9 @@ fun ListaLugares(
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(
-                        fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                        fadeInSpec = spring(),
                         placementSpec = spring(dampingRatio = 0.8f, stiffness = 380f),
-                        fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+                        fadeOutSpec = spring()
                     )
                     .clip(RoundedCornerShape(20.dp))
                     .clickable { onClick(item.lugar.id) },
@@ -98,77 +96,82 @@ fun ListaLugares(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val esMasCercano = item.lugar.id == masCercanoId
+                    val colorChip = if (esMasCercano) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    }
+
                     Box(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(colorPorCategoria(item.lugar.categoria))
+                            .background(colorChip)
                     )
+
                     Spacer(modifier = Modifier.width(12.dp))
+
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.lugar.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (esSeleccionado) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = item.lugar.categoria,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (esSeleccionado) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                text = item.lugar.nombre,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (esSeleccionado) FontWeight.Bold else FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                            AnimatedVisibility(visible = item.dentroDelRadio) {
+                            if (esMasCercano) {
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.tertiaryContainer
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(50)
                                 ) {
                                     Text(
-                                        text = "En radio ($radioMetros m)",
+                                        text = "Más cercano",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
                         }
+
+                        Text(
+                            text = item.lugar.categoria,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = item.metros?.let { formatearDistancia(it) } ?: "Sin calcular",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (item.metros != null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+
+                    item.metros?.let { dist ->
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = if (esSeleccionado) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = formatearDistancia(dist),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (esSeleccionado) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         }
     }
-}
-
-private fun colorPorCategoria(categoria: String): Color = when (categoria) {
-    "Estudio" -> Color(0xFF1565C0)
-    "Comida" -> Color(0xFFEF6C00)
-    "Eventos" -> Color(0xFF7B1FA2)
-    "Servicios" -> Color(0xFF2E7D32)
-    else -> Color(0xFF546E7A)
 }

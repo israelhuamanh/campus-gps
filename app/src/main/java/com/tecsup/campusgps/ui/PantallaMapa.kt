@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -32,12 +33,8 @@ import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonGroup
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -45,7 +42,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -60,9 +56,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -90,7 +83,7 @@ private fun hayPermisoUbicacion(contexto: Context): Boolean {
     return tieneFino || tieneAproximado
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaMapa(vm: MapaViewModel) {
     val estado by vm.estado.collectAsState()
@@ -159,12 +152,12 @@ fun PantallaMapa(vm: MapaViewModel) {
     val presionado by interactionSource.collectIsPressedAsState()
     val radioBoton by animateDpAsState(
         targetValue = if (presionado) 8.dp else 28.dp,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = spring(),
         label = "radioBotonPrincipal"
     )
     val escalaBoton by animateFloatAsState(
         targetValue = if (presionado) 0.96f else 1f,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = spring(),
         label = "escalaBotonPrincipal"
     )
 
@@ -172,7 +165,7 @@ fun PantallaMapa(vm: MapaViewModel) {
     val presionadoCercano by interaccionCercano.collectIsPressedAsState()
     val radioCercano by animateDpAsState(
         targetValue = if (presionadoCercano) 8.dp else 28.dp,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        animationSpec = spring(),
         label = "radioBotonCercano"
     )
 
@@ -261,30 +254,31 @@ fun PantallaMapa(vm: MapaViewModel) {
                         )
                     }
 
-                    ToggleButton(
-                        checked = siguiendo,
-                        onCheckedChange = { quiereSeguir ->
-                            if (quiereSeguir) {
-                                ejecutarConPermiso(AccionUbicacion.SEGUIMIENTO)
-                            } else {
+                    FilterChip(
+                        selected = siguiendo,
+                        onClick = {
+                            if (siguiendo) {
                                 vm.detenerSeguimiento()
+                            } else {
+                                ejecutarConPermiso(AccionUbicacion.SEGUIMIENTO)
                             }
                         },
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (siguiendo) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (siguiendo) "Detener seguimiento" else "Iniciar seguimiento",
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (siguiendo) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = if (siguiendo) "Detener seguimiento" else "Iniciar seguimiento",
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
                 }
 
                 val itemMasCercano = masCercano?.let { lugar ->
@@ -336,7 +330,7 @@ fun PantallaMapa(vm: MapaViewModel) {
                 lugares = lugares,
                 seleccionado = seleccionado,
                 onClick = { vm.seleccionar(it) },
-                radioMetros = radioMetros,
+                masCercanoId = masCercano?.id,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(195.dp)
@@ -345,16 +339,12 @@ fun PantallaMapa(vm: MapaViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SelectorRadio(
     radios: List<Int>,
     radioSeleccionado: Int,
     onSeleccionarRadio: (Int) -> Unit
 ) {
-    val fuentesInteraccion = remember(radios) {
-        List(radios.size) { MutableInteractionSource() }
-    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -365,53 +355,17 @@ private fun SelectorRadio(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        ButtonGroup(
-            overflowIndicator = { menuState ->
-                ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
-            },
-            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
-        ) {
-            radios.forEachIndexed { index, radio ->
-                val interaccion = fuentesInteraccion[index]
-                val seleccionado = radio == radioSeleccionado
-                customItem(
-                    buttonGroupContent = {
-                        ToggleButton(
-                            checked = seleccionado,
-                            onCheckedChange = { if (it) onSeleccionarRadio(radio) },
-                            shapes = when (index) {
-                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                radios.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                            },
-                            interactionSource = interaccion,
-                            modifier = Modifier
-                                .animateWidth(interactionSource = interaccion)
-                                .semantics { role = Role.RadioButton }
-                        ) {
-                            Text(
-                                text = "$radio m",
-                                softWrap = false,
-                                maxLines = 1
-                            )
-                        }
-                    },
-                    menuContent = { menuState ->
-                        DropdownMenuItem(
-                            text = { Text("$radio m") },
-                            onClick = {
-                                onSeleccionarRadio(radio)
-                                menuState.dismiss()
-                            }
-                        )
-                    }
-                )
-            }
+        radios.forEach { radio ->
+            val seleccionado = radio == radioSeleccionado
+            FilterChip(
+                selected = seleccionado,
+                onClick = { onSeleccionarRadio(radio) },
+                label = { Text("$radio m") }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FiltroCategorias(
     categorias: List<String>,
@@ -427,7 +381,7 @@ private fun FiltroCategorias(
             val activo = categoria == seleccionada
             val radioEsquina by animateDpAsState(
                 targetValue = if (activo) 20.dp else 8.dp,
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                animationSpec = spring(),
                 label = "radioChipCategoria"
             )
             FilterChip(
