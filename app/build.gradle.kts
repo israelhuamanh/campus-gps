@@ -62,10 +62,10 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.5.0-rc01")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Dependencias del laboratorio CampusGPS
+    // Dependencias del laboratorio CampusGPS (rama mapa-osm sin API Key)
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
-    implementation("com.google.maps.android:maps-compose:8.4.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
